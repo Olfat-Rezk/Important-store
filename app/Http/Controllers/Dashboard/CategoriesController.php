@@ -18,15 +18,19 @@ class CategoriesController extends Controller
     public function index()
     {
         $request= request();
-        $query=Category::query();
-        if($name=$request->query('name')){
-            $query->where('name','LIKE',"%{$name}%");
-        }
-        if($status=$request->query('status')){
-            $query->where('status','=',$status);
-        }
-        $categories = $query->paginate(2);
+        //select a.*,parent.name as parent_name
+        //from categories as a
+        //leftjoin categories as parent on parent.name=a.parent_id
+
+        // $categories = Category::leftJoin('categories as parents','parents.id','=','categories.parent_id')
+        // ->select([
+        //     'categories.*',
+        //     'parents.name as parent_name'
+        // ])
+        // ->filter($request->all())->paginate(2);
        // dd($categories);
+     $categories= Category::withCount('products')->paginate();
+    //$categories= Category::status('active')->paginate();
         return view('dashboard.categories.index',compact('categories'));
     }
 
@@ -75,8 +79,8 @@ class CategoriesController extends Controller
      */
     public function show($id)
     {
-        // $categories = Category::findOrFail($id);
-        // return view('dashboard.categories.show');
+        $category = Category::findOrFail($id);
+        return view('dashboard.categories.show',compact('category'));
     }
 
     /**
@@ -137,10 +141,29 @@ class CategoriesController extends Controller
        // Category::destroy($id);
        $category = Category::findOrFail($id);
        $category->delete();
-       if($category->image){
-        Storage::disk('public')->delete($category->image);
-       }
+    //    if($category->image){
+    //     Storage::disk('public')->delete($category->image);
+    //    }
         return redirect()->route('dashboard.categories.index')->with('success','category deleted');
+    }
+
+    public function trash(){
+        $categories= Category::onlyTrashed()->paginate();
+        return view('dashboard.categories.trash',compact('categories'));
+    }
+    public function restore($id){
+        $categories = Category::onlyTrashed()->findOrFail($id);
+        $categories->restore();
+        return redirect()->route('dashboard.categories.trash')
+        ->with('success','category is restored');
+    }
+
+    public function forceDelete($id){
+        $categories = Category::onlyTrashed()->findOrFail($id);
+        $categories->forceDelete();
+        return redirect()->route('dashboard.categories.trash')
+        ->with('success','category is deleted forever');
+
     }
 
     protected function uploadImage(Request $request){
